@@ -77,17 +77,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private AudioRecord recorder = null;
-    int BufferElements2Rec = 2048; // want to play 2048 (2K) since 2 bytes we use only 1024
-    int BytesPerElement = 2; // 2 bytes in 16bit format
+    int sampleRate = 44100;
+    byte buffer[] = null;
+    private PCMEncoderAAC pcmEncoderAAC;
 
     private void startRecording()
     {
+        pcmEncoderAAC = new PCMEncoderAAC(sampleRate, new PCMEncoderAAC.EncoderListener() {
+            @Override
+            public void encodeAAC(byte[] data) {
+                server.broadcast(data);
+            }
+        });
+
+        int recordMinBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                44100,
+                sampleRate,
                 AudioFormat.CHANNEL_CONFIGURATION_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                BufferElements2Rec * BytesPerElement
+                recordMinBufferSize
         );
+        buffer = new byte[recordMinBufferSize];
 
         Thread recordingThread = new Thread(new Runnable() {
             public void run() {
@@ -106,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void recordTVData() {
         Log.d(LOG_TAG, "recordBeepData started");
-        byte data[] = new byte[BufferElements2Rec];
+
 
         // wait record is ready
         while( recorder != null && recorder.getState() == 0)
@@ -123,8 +133,13 @@ public class MainActivity extends AppCompatActivity {
 
         while (m_bRecording) {
             if( recorder != null ) {
-                recorder.read(data, 0, BufferElements2Rec);
-                server.broadcast(data);
+                int read = recorder.read(buffer, 0, buffer.length);
+
+                if (AudioRecord.ERROR_INVALID_OPERATION != read) {
+                    //The acquired pcm data is the buffer
+                    Log.d("TAG", String.valueOf(buffer.length));
+                    pcmEncoderAAC.encodeData(buffer);
+                }
             }
         }
 
