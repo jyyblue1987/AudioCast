@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
         int recordMinBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
-                AudioFormat.CHANNEL_CONFIGURATION_STEREO,
+                AudioFormat.CHANNEL_IN_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 recordMinBufferSize
         );
