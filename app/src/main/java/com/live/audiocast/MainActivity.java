@@ -43,12 +43,12 @@ public class MainActivity extends Activity {
 
         WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
         String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
-        TinyWebServer.startServer(ip,9000, "/web/public_html");
+        TinyWebServer.startServer(ip,9000, "");
 
         context = this.getApplicationContext();
 
         txtIP = findViewById(R.id.txtIPAddress);
-        txtIP.setText("http://" + ip + "/cast");
+        txtIP.setText("http://" + ip + ":9000/cast");
 
         webView = findViewById(R.id.webView);
 
@@ -178,7 +178,7 @@ public class MainActivity extends Activity {
 
     private void startRecording()
     {
-        int buffer_size = sampleRate * channel * bitPerSample / 40; // 200ms
+        int buffer_size = sampleRate * channel * bitPerSample / 50; // 200ms
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_STEREO,
