@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
     byte buffer[] = null;
     private PCMEncoderAAC pcmEncoderAAC;
 
-    private AudioTrack mAudioTrack;
+//    private AudioTrack mAudioTrack;
 
 
     private void startRecording()
@@ -116,22 +116,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }, "AudioRecorder Thread");
 
-        mAudioTrack =
-                new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT,
-                        buffer_size, AudioTrack.MODE_STREAM);
-        while( true )
-        {
-            if( mAudioTrack.getState() == mAudioTrack.STATE_INITIALIZED)
-                break;
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                Log.d(LOG_TAG, "AudioTrack Error = " + e.getMessage());
-            }
-        }
-
-        mAudioTrack.play();
+//        mAudioTrack =
+//                new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT,
+//                        buffer_size, AudioTrack.MODE_STREAM);
+//        while( true )
+//        {
+//            if( mAudioTrack.getState() == mAudioTrack.STATE_INITIALIZED)
+//                break;
+//            try {
+//                Thread.sleep(100);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//                Log.d(LOG_TAG, "AudioTrack Error = " + e.getMessage());
+//            }
+//        }
+//
+//        mAudioTrack.play();
 
         m_bRecording = true;
         recordingThread.start();
@@ -164,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
                 int read = recorder.read(buffer, 0, buffer.length);
 
                 if (AudioRecord.ERROR_INVALID_OPERATION != read) {
-                    mAudioTrack.write(buffer, 0, buffer.length);
+//                    mAudioTrack.write(buffer, 0, buffer.length);
 
                     //The acquired pcm data is the buffer
                     Log.d("TAG", String.valueOf(buffer.length));
