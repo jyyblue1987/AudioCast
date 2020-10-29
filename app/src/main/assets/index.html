@@ -1,26 +1,105 @@
-<script src="https://samirkumardas.github.io/jmuxer/jmuxer.min.js"></script>
-<video width="100%" controls autoplay poster="images/loader-thumb.jpg" id="player"></video>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width">
+
+    <title>Play TV Audio</title>
+
+    <link rel="stylesheet" href="">
+</head>
+
+<body>
+
+</body>
 <script>
+
+    class SoundBuffer {
+        constructor(ctx, bufferSize = 6, debug = true) {
+            this.ctx = ctx;
+            this.bufferSize = bufferSize;
+            this.debug = debug;
+            this.chunks = [];
+            this.isPlaying = false;
+            this.startTime = 0;
+            this.lastChunkOffset = 0;
+        }
+        createChunk(chunk) {
+            var source = this.ctx.createBufferSource();
+            source.buffer = chunk;
+            source.connect(this.ctx.destination);
+            source.onended = (e) => {
+                this.chunks.splice(this.chunks.indexOf(source), 1);
+                if (this.chunks.length == 0) {
+                    this.isPlaying = false;
+                    this.startTime = 0;
+                    this.lastChunkOffset = 0;
+                }
+            };
+            return source;
+        }
+        log(data) {
+            if (this.debug) {
+                console.log(new Date().toUTCString() + " : " + data);
+            }
+        }
+        addChunk(data) {
+            if (this.isPlaying && (this.chunks.length > this.bufferSize)) {
+                this.log("chunk discarded");
+                this.chunks = [];
+                return; // throw away
+            }
+            else if (this.isPlaying && (this.chunks.length <= this.bufferSize)) { // schedule & add right now
+                this.log("chunk accepted");
+                let chunk = this.createChunk(data);
+                chunk.start(this.startTime + this.lastChunkOffset);
+                this.lastChunkOffset += chunk.buffer.duration;
+                this.chunks.push(chunk);
+            }
+            else if ((this.chunks.length < (this.bufferSize / 2)) && !this.isPlaying) { // add & don't schedule
+                this.log("chunk queued");
+                let chunk = this.createChunk(data);
+                this.chunks.push(chunk);
+            }
+            else { // add & schedule entire buffer
+                this.log("queued chunks scheduled");
+                this.isPlaying = true;
+                let chunk = this.createChunk(data);
+                this.chunks.push(chunk);
+                this.startTime = this.ctx.currentTime;
+                this.lastChunkOffset = 0;
+                for (let i = 0; i < this.chunks.length; i++) {
+                    let chunk = this.chunks[i];
+                    chunk.start(this.startTime + this.lastChunkOffset);
+                    this.lastChunkOffset += chunk.buffer.duration;
+                }
+            }
+        }
+    }
+
+
     var host = window.location.hostname;
     if( host == "" )
-        host = "localhost";
+        host = "192.168.0.105";
 
     console.log(host);
 
-    var jmuxer = new JMuxer({
-        node: 'player',
-        mode: 'audio',
-        debug: true
-    });
-
-    function parse(data) {
-          var input = new Uint8Array(data)
-
-          return {
-                audio: input
-          };
-     }
-
+    var context = null;
+    var source = null;
+    var player = null;
+    function init() {
+        try {
+            if(window.webkitAudioContext) {
+                context = new window.webkitAudioContext();
+            } else {
+                context = new window.AudioContext();
+            }
+            player = new SoundBuffer(context, 3, true);
+        } catch(e) {
+            alert('Web Audio API is not supported in this browser');
+        }
+    }
 
     function WebSocketTest(port) {
         if ("WebSocket" in window) {
@@ -38,9 +117,10 @@
                     console.log(event.data);
                     return;
                 }
-
-                var audio = new Uint8Array(event.data);
-                jmuxer.feed({audio: audio});
+                context.decodeAudioData(event.data, function(data) {
+                    if( player != null )
+                        player.addChunk(data);
+                });
             });
 
             ws.onclose = function() {
@@ -64,7 +144,8 @@
 
 
     setTimeout(function() {
+        init();
         WebSocketTest(9001);
     }, 500);
-
-</script>
+  </script>
+</html>
