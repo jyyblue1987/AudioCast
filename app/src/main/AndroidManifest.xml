@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.live.audiocast">
 
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.INTERNET" /> <!-- Required to poll the state of the network connection and respond to changes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

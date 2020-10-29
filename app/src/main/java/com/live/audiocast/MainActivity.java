@@ -8,10 +8,14 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.AudioTrack;
 import android.media.MediaRecorder;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.format.Formatter;
 import android.util.Log;
 import android.view.View;
 
@@ -42,7 +46,10 @@ public class MainActivity extends AppCompatActivity {
 
         server = new AudioCastServer(9001);
         server.start();
-        TinyWebServer.startServer("192.168.0.108",9000, "/web/public_html");
+
+        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+        String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
+        TinyWebServer.startServer(ip,9000, "/web/public_html");
     }
 
     @Override
@@ -81,6 +88,9 @@ public class MainActivity extends AppCompatActivity {
     byte buffer[] = null;
     private PCMEncoderAAC pcmEncoderAAC;
 
+    private AudioTrack mAudioTrack;
+
+
     private void startRecording()
     {
         pcmEncoderAAC = new PCMEncoderAAC(sampleRate, new PCMEncoderAAC.EncoderListener() {
@@ -90,20 +100,38 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        int recordMinBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+//        int recordMinBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        int buffer_size = sampleRate * 4;
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                recordMinBufferSize
+                buffer_size
         );
-        buffer = new byte[recordMinBufferSize];
+        buffer = new byte[buffer_size];
 
         Thread recordingThread = new Thread(new Runnable() {
             public void run() {
                 recordTVData();
             }
         }, "AudioRecorder Thread");
+
+        mAudioTrack =
+                new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT,
+                        buffer_size, AudioTrack.MODE_STREAM);
+        while( true )
+        {
+            if( mAudioTrack.getState() == mAudioTrack.STATE_INITIALIZED)
+                break;
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Log.d(LOG_TAG, "AudioTrack Error = " + e.getMessage());
+            }
+        }
+
+        mAudioTrack.play();
 
         m_bRecording = true;
         recordingThread.start();
@@ -136,6 +164,8 @@ public class MainActivity extends AppCompatActivity {
                 int read = recorder.read(buffer, 0, buffer.length);
 
                 if (AudioRecord.ERROR_INVALID_OPERATION != read) {
+                    mAudioTrack.write(buffer, 0, buffer.length);
+
                     //The acquired pcm data is the buffer
                     Log.d("TAG", String.valueOf(buffer.length));
                     pcmEncoderAAC.encodeData(buffer);
