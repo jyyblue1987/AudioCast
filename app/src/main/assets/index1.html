@@ -36,7 +36,67 @@
 </body>
 <script>
 
-
+    class SoundBuffer {
+        constructor(ctx, bufferSize = 6, debug = true) {
+            this.ctx = ctx;            
+            this.bufferSize = bufferSize;
+            this.debug = debug;
+            this.chunks = [];
+            this.isPlaying = false;
+            this.startTime = 0;
+            this.lastChunkOffset = 0;
+        }
+        createChunk(chunk) {
+            var source = this.ctx.createBufferSource();
+            source.buffer = chunk;
+            source.connect(this.ctx.destination);
+            source.onended = (e) => {
+                this.chunks.splice(this.chunks.indexOf(source), 1);
+                if (this.chunks.length == 0) {
+                    this.isPlaying = false;
+                    this.startTime = 0;
+                    this.lastChunkOffset = 0;
+                }
+            };
+            return source;
+        }
+        log(data) {
+            if (this.debug) {
+                console.log(new Date().toUTCString() + " : " + data);
+            }
+        }
+        addChunk(data) {
+            if (this.isPlaying && (this.chunks.length > this.bufferSize)) {
+                this.log("chunk discarded");
+                return; // throw away
+            }
+            else if (this.isPlaying && (this.chunks.length <= this.bufferSize)) { // schedule & add right now
+                this.log("chunk accepted");
+                let chunk = this.createChunk(data);
+                chunk.start(this.startTime + this.lastChunkOffset);
+                this.lastChunkOffset += chunk.buffer.duration;
+                this.chunks.push(chunk);
+            }
+            else if ((this.chunks.length < (this.bufferSize / 2)) && !this.isPlaying) { // add & don't schedule
+                this.log("chunk queued");
+                let chunk = this.createChunk(data);
+                this.chunks.push(chunk);
+            }
+            else { // add & schedule entire buffer
+                this.log("queued chunks scheduled");
+                this.isPlaying = true;
+                let chunk = this.createChunk(data);
+                this.chunks.push(chunk);
+                this.startTime = this.ctx.currentTime;
+                this.lastChunkOffset = 0;
+                for (let i = 0; i < this.chunks.length; i++) {
+                    let chunk = this.chunks[i];
+                    chunk.start(this.startTime + this.lastChunkOffset);
+                    this.lastChunkOffset += chunk.buffer.duration;
+                }
+            }
+        }
+    }
 
     const pre = document.querySelector('pre');
     const myScript = document.querySelector('script');
@@ -95,6 +155,7 @@
 
     var context = null;
     var source = null;
+    var player = null;
     function init() {
         try {
             if(window.webkitAudioContext) {
@@ -102,7 +163,7 @@
             } else {
                 context = new window.AudioContext();
             }
-            source = context.createBufferSource();
+            player = new SoundBuffer(context, 6, true);
         } catch(e) {
             alert('Web Audio API is not supported in this browser');
         }
@@ -145,9 +206,12 @@
                 }
 
                 context.decodeAudioData(event.data, function(data) {
-                    count ++; // Keep a count of how many messages have been received
-                    var playTime = startTime + (count * 200 ) //Play each at file 200ms
-                    playSound(data, playTime); //call the function to play the sample at the appropriate time
+                    // count ++; // Keep a count of how many messages have been received
+                    // var playTime = startTime + (count * 200 ) //Play each at file 200ms
+                    // playSound(data, playTime); //call the function to play the sample at the appropriate time
+
+                    if( player != null )
+                        player.addChunk(data);
                 });
 
 
