@@ -5,6 +5,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
@@ -18,25 +19,63 @@ import android.os.Bundle;
 import android.text.format.Formatter;
 import android.util.Log;
 import android.view.View;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.TextView;
 
 import java.io.IOException;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     private static final String LOG_TAG = "log_tag";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
 
     AudioCastServer server = null;
-    public static Context context = null;
-
-    private byte[] header = new byte[44];
-
     boolean m_bRecording = true;
+    TextView txtIP = null;
+    WebView webView = null;
+    public static Context context = null;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        this.context = this;
+        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+        String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
+        TinyWebServer.startServer(ip,9000, "/web/public_html");
+
+        context = this.getApplicationContext();
+
+        txtIP = findViewById(R.id.txtIPAddress);
+        txtIP.setText("http://" + ip + "/cast");
+
+        webView = findViewById(R.id.webView);
+
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setSupportMultipleWindows(true); // This forces ChromeClient enabled.
+
+        webView.setWebChromeClient(new WebChromeClient(){
+            @Override
+            public void onReceivedTitle(WebView view, String title) {
+                getWindow().setTitle(title); //Set Activity tile to page title.
+            }
+        });
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                view.loadUrl(url);
+                return false;
+            }
+        });
+
+        webView.loadUrl("https://www.youtube.com/");
+
+        server = new AudioCastServer(9001);
+        server.start();
+
 
         if (Build.VERSION.SDK_INT >= 23) {
             String[] permissions = {Manifest.permission.RECORD_AUDIO};
@@ -46,28 +85,15 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        server = new AudioCastServer(9001);
-        server.start();
-
-        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
-        String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
-        TinyWebServer.startServer(ip,9000, "/web/public_html");
+        startRecording();
     }
+
 
     @Override
     public void onDestroy(){
         super.onDestroy();
         //stop webserver on destroy of service or process
-        m_bRecording = false;
-
-        try {
-            server.stop();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        TinyWebServer.stopServer();
+        stopProc();
     }
 
     private boolean hasPermissionsGranted(String[] permissions) {
@@ -80,9 +106,15 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    public void onStartRecording(View v)
-    {
-        startRecording();
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startRecording();
+            } else {
+            }
+        }
     }
 
     private AudioRecord recorder = null;
@@ -90,7 +122,6 @@ public class MainActivity extends AppCompatActivity {
     int bitPerSample = 16;
     int sampleRate = 44100;
     byte buffer[] = null;
-    private PCMEncoderAAC pcmEncoderAAC;
 
 //    private AudioTrack mAudioTrack;
 
@@ -147,13 +178,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void startRecording()
     {
-        pcmEncoderAAC = new PCMEncoderAAC(sampleRate, new PCMEncoderAAC.EncoderListener() {
-            @Override
-            public void encodeAAC(byte[] data) {
-                server.broadcast(data);
-            }
-        });
-
         int buffer_size = sampleRate * channel * bitPerSample / 40; // 200ms
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
@@ -175,9 +199,20 @@ public class MainActivity extends AppCompatActivity {
         recordingThread.start();
     }
 
-    private void stopRecording()
+    private void stopProc()
     {
         m_bRecording = false;
+
+        m_bRecording = false;
+
+        try {
+            server.stop();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        TinyWebServer.stopServer();
     }
 
     private void recordTVData() {
