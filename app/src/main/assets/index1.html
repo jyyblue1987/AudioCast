@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width">
+
+    <title>decodeAudioData example</title>
+
+    <link rel="stylesheet" href="">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+<h1>decodeAudioData example</h1>
+
+<p>Note: This example does not work in Safari, due to some kind of bug.</p>
+
+<button class="play">Play</button>
+<button class="stop">Stop</button>
+
+<h2>Set playback rate</h2>
+<input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
+<span class="playback-rate-value">1.0</span>
+
+<h2>Set loop start and loop end</h2>
+<input class="loopstart-control" type="range" min="0" max="20" step="1" value="0">
+<span class="loopstart-value">0</span>
+
+<input class="loopend-control" type="range" min="0" max="20" step="1" value="0">
+<span class="loopend-value">0</span>
+
+<pre></pre>
+</body>
+<script>
+
+
+
+    const pre = document.querySelector('pre');
+    const myScript = document.querySelector('script');
+    const play = document.querySelector('.play');
+    const stop = document.querySelector('.stop');
+
+    const playbackControl = document.querySelector('.playback-rate-control');
+    const playbackValue = document.querySelector('.playback-rate-value');
+    playbackControl.setAttribute('disabled', 'disabled');
+
+    const loopstartControl = document.querySelector('.loopstart-control');
+    const loopstartValue = document.querySelector('.loopstart-value');
+    loopstartControl.setAttribute('disabled', 'disabled');
+
+    const loopendControl = document.querySelector('.loopend-control');
+    const loopendValue = document.querySelector('.loopend-value');
+    loopendControl.setAttribute('disabled', 'disabled');
+
+    play.onclick = function() {
+      source.start(0);
+      play.setAttribute('disabled', 'disabled');
+      playbackControl.removeAttribute('disabled');
+      loopstartControl.removeAttribute('disabled');
+      loopendControl.removeAttribute('disabled');
+    }
+
+    stop.onclick = function() {
+      source.stop(0);
+      play.removeAttribute('disabled');
+      playbackControl.setAttribute('disabled', 'disabled');
+      loopstartControl.setAttribute('disabled', 'disabled');
+      loopendControl.setAttribute('disabled', 'disabled');
+    }
+
+    playbackControl.oninput = function() {
+      source.playbackRate.value = playbackControl.value;
+      playbackValue.innerHTML = playbackControl.value;
+    }
+
+    loopstartControl.oninput = function() {
+      source.loopStart = loopstartControl.value;
+      loopstartValue.innerHTML = loopstartControl.value;
+    }
+
+    loopendControl.oninput = function() {
+      source.loopEnd = loopendControl.value;
+      loopendValue.innerHTML = loopendControl.value;
+    }
+
+
+    var host = window.location.hostname;
+    if( host == "" )
+        host = "192.168.0.105";
+
+    console.log(host);
+
+    var context = null;
+    var source = null;
+    function init() {
+        try {
+            if(window.webkitAudioContext) {
+                context = new window.webkitAudioContext();
+            } else {
+                context = new window.AudioContext();
+            }
+            source = context.createBufferSource();
+        } catch(e) {
+            alert('Web Audio API is not supported in this browser');
+        }
+    }
+
+    function playSound(buffer, playTime) {
+        if( source.buffer != null )
+        {
+            return;
+        }
+        source.buffer = buffer; // Put the sample content into the buffer
+        // source.start(playTime); // Set the starting time of the sample to the scheduled play time
+        // source.connect(analyserNode); //Connect the source to the visualiser
+        source.connect(context.destination); // Also Connect the source to the audio output
+    }
+
+
+    var startTime; // Make startTime a global var
+    var count = 0;
+
+    function WebSocketTest(port) {
+        if ("WebSocket" in window) {
+            // Let us open a web socket
+            var ws = new WebSocket("ws://" + host + ":" + port);
+
+            ws.binaryType = 'arraybuffer';
+            ws.onopen = function() {
+                console.log("socket is connected")
+            };
+
+            ws.addEventListener('message',function(event) {
+                var data_type = typeof event.data
+                if ( data_type == "string" ) {
+                    console.log(event.data);
+                    return;
+                }
+
+                if (count == 0 ){
+                    startTime = context.currentTime;
+                }
+
+                context.decodeAudioData(event.data, function(data) {
+                    count ++; // Keep a count of how many messages have been received
+                    var playTime = startTime + (count * 200 ) //Play each at file 200ms
+                    playSound(data, playTime); //call the function to play the sample at the appropriate time
+                });
+
+
+                // var audio = new Uint8Array(event.data);
+                // jmuxer.feed({audio: audio});
+            });
+
+            ws.onclose = function() {
+                // websocket is closed.
+                console.log("Connection is closed...");
+                setTimeout(function() {
+                   WebSocketTest(port);
+               }, 1000);
+            };
+
+            ws.onerror = function(err) {
+                console.error(err);
+                ws.close()
+            }
+
+        } else {
+            // The browser doesn't support WebSocket
+            console.log("WebSocket NOT supported by your Browser!");
+        }
+    }
+
+
+    setTimeout(function() {
+        init();
+        WebSocketTest(9001);
+    }, 500);
+  </script>
+</html>

@@ -28,6 +28,8 @@ public class MainActivity extends AppCompatActivity {
     AudioCastServer server = null;
     public static Context context = null;
 
+    private byte[] header = new byte[44];
+
     boolean m_bRecording = true;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,12 +86,64 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private AudioRecord recorder = null;
+    int channel = 2;
+    int bitPerSample = 16;
     int sampleRate = 44100;
     byte buffer[] = null;
     private PCMEncoderAAC pcmEncoderAAC;
 
 //    private AudioTrack mAudioTrack;
 
+    private void generateWavHeader(int size, int channel, int bitPerSample, int longSampleRate)
+    {
+        int totalDataLen = 44 - 8 + size;
+        int byteRate = longSampleRate * channel * bitPerSample / 8;
+
+        buffer[0] = 'R';  // RIFF/WAVE header
+        buffer[1] = 'I';
+        buffer[2] = 'F';
+        buffer[3] = 'F';
+        buffer[4] = (byte) (totalDataLen & 0xff);
+        buffer[5] = (byte) ((totalDataLen >> 8) & 0xff);
+        buffer[6] = (byte) ((totalDataLen >> 16) & 0xff);
+        buffer[7] = (byte) ((totalDataLen >> 24) & 0xff);
+        buffer[8] = 'W';
+        buffer[9] = 'A';
+        buffer[10] = 'V';
+        buffer[11] = 'E';
+        buffer[12] = 'f';  // 'fmt ' chunk
+        buffer[13] = 'm';
+        buffer[14] = 't';
+        buffer[15] = ' ';
+        buffer[16] = 16;  // 4 bytes: size of 'fmt ' chunk
+        buffer[17] = 0;
+        buffer[18] = 0;
+        buffer[19] = 0;
+        buffer[20] = 1;  // format = 1
+        buffer[21] = 0;
+        buffer[22] = (byte) channel;
+        buffer[23] = 0;
+        buffer[24] = (byte) (longSampleRate & 0xff);
+        buffer[25] = (byte) ((longSampleRate >> 8) & 0xff);
+        buffer[26] = (byte) ((longSampleRate >> 16) & 0xff);
+        buffer[27] = (byte) ((longSampleRate >> 24) & 0xff);
+        buffer[28] = (byte) (byteRate & 0xff);
+        buffer[29] = (byte) ((byteRate >> 8) & 0xff);
+        buffer[30] = (byte) ((byteRate >> 16) & 0xff);
+        buffer[31] = (byte) ((byteRate >> 24) & 0xff);
+        buffer[32] = (byte) (2 * 16 / 8);  // block align
+        buffer[33] = 0;
+        buffer[34] = (byte)bitPerSample;  // bits per sample
+        buffer[35] = 0;
+        buffer[36] = 'd';
+        buffer[37] = 'a';
+        buffer[38] = 't';
+        buffer[39] = 'a';
+        buffer[40] = (byte) (size & 0xff);
+        buffer[41] = (byte) ((size >> 8) & 0xff);
+        buffer[42] = (byte) ((size >> 16) & 0xff);
+        buffer[43] = (byte) ((size >> 24) & 0xff);
+    }
 
     private void startRecording()
     {
@@ -100,38 +154,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-//        int recordMinBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-        int buffer_size = sampleRate * 4;
+        int buffer_size = sampleRate * channel * bitPerSample / 40; // 200ms
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 buffer_size
         );
-        buffer = new byte[buffer_size];
+
+        buffer = new byte[buffer_size + 44];
+        generateWavHeader(buffer_size, channel, bitPerSample, sampleRate );
 
         Thread recordingThread = new Thread(new Runnable() {
             public void run() {
                 recordTVData();
             }
         }, "AudioRecorder Thread");
-
-//        mAudioTrack =
-//                new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT,
-//                        buffer_size, AudioTrack.MODE_STREAM);
-//        while( true )
-//        {
-//            if( mAudioTrack.getState() == mAudioTrack.STATE_INITIALIZED)
-//                break;
-//            try {
-//                Thread.sleep(100);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//                Log.d(LOG_TAG, "AudioTrack Error = " + e.getMessage());
-//            }
-//        }
-//
-//        mAudioTrack.play();
 
         m_bRecording = true;
         recordingThread.start();
@@ -161,14 +199,12 @@ public class MainActivity extends AppCompatActivity {
 
         while (m_bRecording) {
             if( recorder != null ) {
-                int read = recorder.read(buffer, 0, buffer.length);
+                int read = recorder.read(buffer, 44, buffer.length - 44);
 
                 if (AudioRecord.ERROR_INVALID_OPERATION != read) {
-//                    mAudioTrack.write(buffer, 0, buffer.length);
-
-                    //The acquired pcm data is the buffer
-                    Log.d("TAG", String.valueOf(buffer.length));
-                    pcmEncoderAAC.encodeData(buffer);
+//                    Log.d("TAG", String.valueOf(buffer.toString()));
+                    server.broadcast(buffer);
+//                    pcmEncoderAAC.encodeData(buffer);
                 }
             }
         }
