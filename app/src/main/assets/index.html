@@ -11,8 +11,7 @@
 </head>
 
 <body>
-
-</body>
+    <button id="btn-play" onclick="onPlay()">Play</button>
 <script>
 
     class SoundBuffer {
@@ -142,10 +141,13 @@
         }
     }
 
-
-    setTimeout(function() {
+    function onPlay()
+    {
         init();
         WebSocketTest(9001);
-    }, 500);
+    }
   </script>
+
+</body>
+
 </html>
