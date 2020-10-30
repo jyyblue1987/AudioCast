@@ -57,7 +57,7 @@
                 this.lastChunkOffset += chunk.buffer.duration;
                 this.chunks.push(chunk);
             }
-            else if ((this.chunks.length < (this.bufferSize / 2)) && !this.isPlaying) { // add & don't schedule
+            else if ((this.chunks.length < (4)) && !this.isPlaying) { // add & don't schedule
                 this.log("chunk queued");
                 let chunk = this.createChunk(data);
                 this.chunks.push(chunk);
@@ -81,7 +81,7 @@
 
     var host = window.location.hostname;
     if( host == "" )
-        host = "192.168.0.105";
+        host = "192.168.0.101";
 
     console.log(host);
 
@@ -95,7 +95,7 @@
             } else {
                 context = new window.AudioContext();
             }
-            player = new SoundBuffer(context, 6, true);
+            player = new SoundBuffer(context, 20, true);
         } catch(e) {
             alert('Web Audio API is not supported in this browser');
         }
