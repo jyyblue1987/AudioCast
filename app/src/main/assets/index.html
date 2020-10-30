@@ -85,8 +85,8 @@
     console.log(host);
 
     var context = null;
-    var source = null;
     var player = null;
+    var play_start_flag = false;
     function init() {
         try {
             if(window.webkitAudioContext) {
@@ -143,6 +143,11 @@
 
     function onPlay()
     {
+        if( play_start_flag == true )
+            return;
+
+        play_start_flag = true;
+            
         init();
         WebSocketTest(9001);
     }
