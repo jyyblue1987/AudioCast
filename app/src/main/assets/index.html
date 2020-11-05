@@ -130,8 +130,8 @@
                 }
                 context.decodeAudioData(event.data, function(data) {
                     if( player != null )
-                        // player.addChunk(data);
-                        player.playChunk(data);
+                        player.addChunk(data);
+                        // player.playChunk(data);
                 });
             });
 

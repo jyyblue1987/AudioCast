@@ -1,5 +1,6 @@
 package com.live.audiocast;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -7,12 +8,18 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioPlaybackCaptureConfiguration;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,13 +32,16 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
 
+import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends Activity {
     private static final String LOG_TAG = "log_tag";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+    private static final int MEDIA_PROJECTION_REQUEST_CODE = 13;
+    MediaProjectionManager mediaProjectionManager;
 
-    AudioCastServer server = null;
+    public static AudioCastServer server = null;
     boolean m_bRecording = true;
     TextView txtIP = null;
     WebView webView = null;
@@ -71,7 +81,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://www.youtube.com/");
+        webView.loadUrl("https://music.taihe.com/");
 
         server = new AudioCastServer(9001);
         server.start();
@@ -83,9 +93,14 @@ public class MainActivity extends Activity {
                 ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
                 return;
             }
+            else
+            {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    startMediaProjectionRequest();
+                else
+                    startRecording();
+            }
         }
-
-        startRecording();
     }
 
 
@@ -94,6 +109,11 @@ public class MainActivity extends Activity {
         super.onDestroy();
         //stop webserver on destroy of service or process
         stopProc();
+    }
+
+    private void startMediaProjectionRequest() {
+        mediaProjectionManager = (MediaProjectionManager) getApplicationContext().getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), MEDIA_PROJECTION_REQUEST_CODE);
     }
 
     private boolean hasPermissionsGranted(String[] permissions) {
@@ -111,10 +131,32 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startRecording();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    startMediaProjectionRequest();
+                else
+                    startRecording();
+
             } else {
             }
         }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == 0)
+            return;
+
+        if (requestCode == MEDIA_PROJECTION_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK) {
+                Intent intent = new Intent(this, AudioCaptureService.class);
+                intent.setAction("AudioCaptureService:Start");
+                intent.putExtra(AudioCaptureService.EXTRA_RESULT_DATA, data);
+
+                startForegroundService(intent);
+            }
+        }
+
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     private AudioRecord recorder = null;
@@ -179,6 +221,7 @@ public class MainActivity extends Activity {
     private void startRecording()
     {
         int buffer_size = sampleRate * channel * bitPerSample / 50; // 200ms
+
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_STEREO,
@@ -203,7 +246,11 @@ public class MainActivity extends Activity {
     {
         m_bRecording = false;
 
-        m_bRecording = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ) {
+            Intent intent = new Intent(this, AudioCaptureService.class);
+            intent.setAction("AudioCaptureService:Stop");
+            startService(intent);
+        }
 
         try {
             server.stop();
