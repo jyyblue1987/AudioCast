@@ -32,8 +32,7 @@
                 this.chunks.splice(this.chunks.indexOf(source), 1);
                 this.log("played = " + this.chunks.length);
 
-                if (this.chunks.length > 2) {
-                    this.chunks = [];
+                if (this.chunks.length == 0) {
                     this.isPlaying = false;
                     this.startTime = 0;
                     this.lastChunkOffset = 0;
@@ -50,6 +49,8 @@
             if (this.isPlaying && (this.chunks.length > this.bufferSize)) {
                 this.log("chunk discarded");
                 this.chunks = [];
+                this.startTime = 0;
+                this.lastChunkOffset = 0;
                 return; // throw away
             }
             else if (this.isPlaying && (this.chunks.length <= this.bufferSize)) { // schedule & add right now
@@ -105,7 +106,7 @@
             } else {
                 context = new window.AudioContext();
             }
-            player = new SoundBuffer(context, 20, true);
+            player = new SoundBuffer(context, 2, true);
         } catch(e) {
             alert('Web Audio API is not supported in this browser');
         }
