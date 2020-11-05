@@ -19,6 +19,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ public class AudioCaptureService extends Service {
     byte buffer[] = null;
     private boolean m_bRecording = false;
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onCreate() {
         super.onCreate();
@@ -50,6 +52,7 @@ public class AudioCaptureService extends Service {
         mediaProjectionManager = (MediaProjectionManager) getApplicationContext().getSystemService(Context.MEDIA_PROJECTION_SERVICE);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void createNotificationChannel() {
         NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "Audio Capture Service Channel", NotificationManager.IMPORTANCE_DEFAULT);
         NotificationManager manager = (NotificationManager) getSystemService(NotificationManager.class);
@@ -63,6 +66,7 @@ public class AudioCaptureService extends Service {
     }
 
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent.getAction();
@@ -134,6 +138,7 @@ public class AudioCaptureService extends Service {
         buffer[43] = (byte) ((size >> 24) & 0xff);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     private void startRecording()
     {
         int buffer_size = sampleRate * channel * bitPerSample / 50; // 200ms

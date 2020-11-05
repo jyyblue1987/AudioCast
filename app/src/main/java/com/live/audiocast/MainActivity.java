@@ -36,6 +36,7 @@ import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends Activity {
+    private static final boolean INTERNAL_AUDIO = true;
     private static final String LOG_TAG = "log_tag";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final int MEDIA_PROJECTION_REQUEST_CODE = 13;
@@ -46,6 +47,7 @@ public class MainActivity extends Activity {
     TextView txtIP = null;
     WebView webView = null;
     public static Context context = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,7 +97,7 @@ public class MainActivity extends Activity {
             }
             else
             {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && INTERNAL_AUDIO)
                     startMediaProjectionRequest();
                 else
                     startRecording();
@@ -131,7 +133,7 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q  && INTERNAL_AUDIO)
                     startMediaProjectionRequest();
                 else
                     startRecording();
@@ -246,7 +248,7 @@ public class MainActivity extends Activity {
     {
         m_bRecording = false;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && INTERNAL_AUDIO ) {
             Intent intent = new Intent(this, AudioCaptureService.class);
             intent.setAction("AudioCaptureService:Stop");
             startService(intent);
