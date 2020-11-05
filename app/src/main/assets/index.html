@@ -30,7 +30,10 @@
             source.connect(this.ctx.destination);
             source.onended = (e) => {
                 this.chunks.splice(this.chunks.indexOf(source), 1);
-                if (this.chunks.length == 0) {
+                this.log("played = " + this.chunks.length);
+
+                if (this.chunks.length > 2) {
+                    this.chunks = [];
                     this.isPlaying = false;
                     this.startTime = 0;
                     this.lastChunkOffset = 0;
@@ -50,13 +53,13 @@
                 return; // throw away
             }
             else if (this.isPlaying && (this.chunks.length <= this.bufferSize)) { // schedule & add right now
-                this.log("chunk accepted");
                 let chunk = this.createChunk(data);
                 chunk.start(this.startTime + this.lastChunkOffset);
+                this.log("chunk accepted = " + this.chunks.length + ", " + (this.startTime + this.lastChunkOffset));
                 this.lastChunkOffset += chunk.buffer.duration;
                 this.chunks.push(chunk);
             }
-            else if ((this.chunks.length < (4)) && !this.isPlaying) { // add & don't schedule
+            else if ((this.chunks.length < 1) && !this.isPlaying) { // add & don't schedule
                 this.log("chunk queued");
                 let chunk = this.createChunk(data);
                 this.chunks.push(chunk);
@@ -75,12 +78,20 @@
                 }
             }
         }
+
+        playChunk(data) {
+            var source = this.ctx.createBufferSource();
+            source.buffer = data;
+            source.connect(this.ctx.destination);
+            source.start(this.lastChunkOffset);
+            this.lastChunkOffset += data.duration;
+        }
     }
 
 
     var host = window.location.hostname;
     if( host == "" )
-        host = "192.168.0.101";
+        host = "192.168.0.102";
 
     console.log(host);
 
@@ -118,7 +129,8 @@
                 }
                 context.decodeAudioData(event.data, function(data) {
                     if( player != null )
-                        player.addChunk(data);
+                        // player.addChunk(data);
+                        player.playChunk(data);
                 });
             });
 
