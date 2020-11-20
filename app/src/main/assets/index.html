@@ -23,6 +23,9 @@
             this.isPlaying = false;
             this.startTime = 0;
             this.lastChunkOffset = 0;
+
+            ctx.createGain();
+            console.log(ctx.state); // running   
         }
         createChunk(chunk) {
             var source = this.ctx.createBufferSource();
